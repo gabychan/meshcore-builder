@@ -14,6 +14,9 @@ on:
           - heltec_v4_companion_radio_ble
           - heltec_v4_companion_radio_usb
           - heltec_v4_companion_radio_wifi
+          - Heltec_v3_companion_radio_ble
+          - Heltec_v3_companion_radio_usb
+          - Heltec_v3_companion_radio_wifi
           - RAK_4631_companion_radio_ble
           - RAK_4631_companion_radio_usb
           - Xiao_nrf52_companion_radio_ble

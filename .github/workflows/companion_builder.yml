@@ -1,0 +1,85 @@
+name: Build Companion con canales
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        description: "Placa y conexion"
+        options:
+          - t1000e_companion_radio_ble
+          - t1000e_companion_radio_usb
+          - Heltec_t114_companion_radio_ble
+          - Heltec_t114_companion_radio_usb
+          - heltec_v4_companion_radio_ble
+          - heltec_v4_companion_radio_usb
+          - heltec_v4_companion_radio_wifi
+          - RAK_4631_companion_radio_ble
+          - RAK_4631_companion_radio_usb
+          - Xiao_nrf52_companion_radio_ble
+          - Xiao_nrf52_companion_radio_usb
+          - Xiao_S3_WIO_companion_radio_ble
+          - Xiao_S3_WIO_companion_radio_usb
+          - Xiao_S3_WIO_companion_radio_wifi
+          - LilyGo_T-Echo_companion_radio_ble
+          - LilyGo_T-Echo_companion_radio_usb
+          - GAT562_30S_Mesh_Kit_companion_radio_ble
+          - GAT562_30S_Mesh_Kit_companion_radio_usb
+        default: GAT562_30S_Mesh_Kit_companion_radio_ble
+      encrypted_config:
+        type: string
+        required: true
+        description: "Configuracion cifrada generada por el builder web (no editar)"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Build Environment
+        uses: ./.github/actions/setup-build-environment
+
+      - name: Decrypt request from Web Builder
+        env:
+          BUILD_REQUEST_B64: ${{ inputs.encrypted_config }}
+          BUILD_PRIVATE_KEY: ${{ secrets.BUILD_PRIVATE_KEY }}
+        run: |
+          pip install --quiet cryptography
+          python3 .github/scripts/build_crypto.py decrypt-request
+
+      - name: Inject default channels
+        run: python3 .github/scripts/apply_default_channels.py requested_config.json
+
+      - name: Build firmware
+        env:
+          TARGET: ${{ inputs.target }}
+          FIRMWARE_VERSION: catalunya
+        run: bash build.sh build-firmware "$TARGET"
+
+      - name: Bundle and encrypt
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          python3 - <<'PY'
+          import json
+          cfg = json.load(open("requested_config.json"))
+          names = [c["name"] for c in cfg.get("channels", [])]
+          open("out/canales.txt", "w").write("Public (MeshCore)\n" + "\n".join(names) + "\n")
+          PY
+          ZIP="meshcore-${TARGET}-$(date +%Y%m%d_%H%M%S).zip"
+          (cd out && zip -9 -r "../$ZIP" ./*)
+          python3 .github/scripts/build_crypto.py encrypt-file --in "$ZIP" --out "$ZIP.enc"
+          rm -f "$ZIP"
+          echo "ZIP_NAME=$ZIP.enc" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.ZIP_NAME }}
+          path: ${{ env.ZIP_NAME }}
+          retention-days: 30

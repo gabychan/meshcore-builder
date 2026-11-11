@@ -17,6 +17,8 @@ on:
           - Heltec_v3_companion_radio_ble
           - Heltec_v3_companion_radio_usb
           - Heltec_v3_companion_radio_wifi
+          - ThinkNode_M1_companion_radio_ble
+          - ThinkNode_M1_companion_radio_usb
           - RAK_4631_companion_radio_ble
           - RAK_4631_companion_radio_usb
           - Xiao_nrf52_companion_radio_ble

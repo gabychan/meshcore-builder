@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MeshCore Catalunya - Builder companion</title>
+<style>
+  :root { --bg:#f6f7f9; --fg:#1b1f24; --card:#fff; --line:#d0d7de; --acc:#0b6bcb; --mut:#57606a; --ok:#1a7f37; --err:#cf222e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0d1117; --fg:#e6edf3; --card:#161b22; --line:#30363d; --acc:#58a6ff; --mut:#8b949e; --ok:#3fb950; --err:#ff7b72; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui,sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  h1 { font-size:1.35rem; margin:.4rem 0 .2rem; } p.sub { color:var(--mut); margin:0 0 1rem; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
+  h2 { font-size:1rem; margin:0 0 .6rem; }
+  label { display:block; font-size:.85rem; color:var(--mut); margin:.5rem 0 .2rem; }
+  select,input { width:100%; padding:8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  table { width:100%; border-collapse:collapse; } td { padding:4px 4px 4px 0; vertical-align:middle; }
+  td.n { width:34%; } td.x { width:40px; }
+  button { padding:8px 14px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--fg); font:inherit; cursor:pointer; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:.6rem; }
+  .fixed { color:var(--mut); font-size:.9rem; }
+  #status { margin-top:.6rem; padding:10px; border-radius:6px; display:none; }
+  #status.ok { display:block; border:1px solid var(--ok); } #status.err { display:block; border:1px solid var(--err); }
+  small { color:var(--mut); } a { color:var(--acc); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Builder companion MeshCore</h1>
+  <p class="sub">Firmware companion con canales por defecto. Se aplican solo en el primer arranque, en nodos sin canales guardados.</p>
+
+  <section>
+    <h2>1. Placa</h2>
+    <select id="target">
+      <option value="t1000e_companion_radio_ble">T-1000E (BLE)</option>
+      <option value="t1000e_companion_radio_usb">T-1000E (USB)</option>
+      <option value="Heltec_t114_companion_radio_ble">Heltec T114 (BLE)</option>
+      <option value="Heltec_t114_companion_radio_usb">Heltec T114 (USB)</option>
+      <option value="heltec_v4_companion_radio_ble">Heltec V4 (BLE)</option>
+      <option value="heltec_v4_companion_radio_usb">Heltec V4 (USB)</option>
+      <option value="heltec_v4_companion_radio_wifi">Heltec V4 (WiFi)</option>
+      <option value="RAK_4631_companion_radio_ble">RAK4631 (BLE)</option>
+      <option value="RAK_4631_companion_radio_usb">RAK4631 (USB)</option>
+      <option value="Xiao_nrf52_companion_radio_ble">Xiao nRF52840 (BLE)</option>
+      <option value="Xiao_nrf52_companion_radio_usb">Xiao nRF52840 (USB)</option>
+      <option value="Xiao_S3_WIO_companion_radio_ble">Xiao S3 + Wio-SX1262 (BLE)</option>
+      <option value="Xiao_S3_WIO_companion_radio_usb">Xiao S3 + Wio-SX1262 (USB)</option>
+      <option value="Xiao_S3_WIO_companion_radio_wifi">Xiao S3 + Wio-SX1262 (WiFi)</option>
+      <option value="LilyGo_T-Echo_companion_radio_ble">T-Echo (BLE)</option>
+      <option value="LilyGo_T-Echo_companion_radio_usb">T-Echo (USB)</option>
+      <option value="GAT562_30S_Mesh_Kit_companion_radio_ble" selected>GAT562 30S Mesh Kit (BLE)</option>
+      <option value="GAT562_30S_Mesh_Kit_companion_radio_usb">GAT562 30S Mesh Kit (USB)</option>
+    </select>
+  </section>
+
+  <section>
+    <h2>2. Canales por defecto</h2>
+    <p class="fixed">Public (MeshCore) viene siempre de serie y no se toca.</p>
+    <table id="chans"></table>
+    <div class="row"><button id="add">+ Anadir canal</button><button id="reset">Valores recomendados</button></div>
+    <small>PSK: base64 de 16/32 bytes, hex, o <code>AQ==</code> (clave por defecto de Meshtastic). Maximo 30 canales.</small>
+  </section>
+
+  <section>
+    <h2>3. Compilar</h2>
+    <label for="token">GitHub token (fine-grained, solo este repo, permiso Actions: read and write). No se guarda.</label>
+    <input id="token" type="password" autocomplete="off" />
+    <div class="row"><button class="primary" id="go">Compilar</button></div>
+    <div id="status"></div>
+    <p><small>Al acabar, abre el resultado con <a href="decrypt.html">decrypt.html</a> en este mismo navegador.</small></p>
+  </section>
+</main>
+<script src="crypto.js"></script>
+<script>
+const REPO_OWNER = "gabychan", REPO_NAME = "meshcore-builder";
+const BRANCH = "main", WORKFLOW = "companion_builder.yml";
+const MT_DEFAULT = [0xd4,0xf1,0xbb,0x3a,0x20,0x29,0x07,0x59,0xf0,0xbc,0xff,0xab,0xcf,0x4e,0x69,0x01];
+const DEFAULTS = [{ name: "MT:Public", psk: "AQ==" }];
+const $ = (id) => document.getElementById(id);
+const tbl = $("chans");
+
+function addRow(name = "", psk = "") {
+  const tr = document.createElement("tr");
+  tr.innerHTML = '<td class="n"><input placeholder="Nombre" maxlength="31"></td><td><input placeholder="PSK"></td><td class="x"><button title="Quitar">x</button></td>';
+  tr.querySelectorAll("input")[0].value = name;
+  tr.querySelectorAll("input")[1].value = psk;
+  tr.querySelector("button").onclick = () => tr.remove();
+  tbl.appendChild(tr);
+}
+function reset() { tbl.innerHTML = ""; DEFAULTS.forEach((c) => addRow(c.name, c.psk)); }
+$("add").onclick = () => addRow();
+$("reset").onclick = reset;
+reset();
+
+function normPsk(raw) {
+  raw = raw.trim();
+  let bytes;
+  if (/^([0-9a-fA-F]{32}|[0-9a-fA-F]{64})$/.test(raw)) {
+    bytes = Uint8Array.from(raw.match(/../g).map((h) => parseInt(h, 16)));
+  } else {
+    try { bytes = Uint8Array.from(atob(raw.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)); }
+    catch { throw new Error("PSK no valida: " + raw.slice(0, 6) + "..."); }
+    if (bytes.length === 1 && bytes[0] >= 1 && bytes[0] <= 10) {
+      const n = bytes[0];
+      bytes = Uint8Array.from(MT_DEFAULT); bytes[15] = (bytes[15] + n - 1) & 255;
+    }
+  }
+  if (bytes.length !== 16 && bytes.length !== 32) throw new Error("PSK de 16 o 32 bytes (o AQ==)");
+  let bin = ""; bytes.forEach((b) => (bin += String.fromCharCode(b)));
+  return btoa(bin);
+}
+function collect() {
+  const channels = [];
+  tbl.querySelectorAll("tr").forEach((tr) => {
+    const [n, p] = tr.querySelectorAll("input");
+    if (!n.value.trim() && !p.value.trim()) return;
+    const name = n.value.trim();
+    if (!/^[ -~]{1,31}$/.test(name) || /["\\]/.test(name)) throw new Error("Nombre no valido: " + name);
+    channels.push({ name, psk: normPsk(p.value) });
+  });
+  if (channels.length > 30) throw new Error("Maximo 30 canales");
+  return channels;
+}
+function status(cls, html) { const s = $("status"); s.className = cls; s.innerHTML = html; }
+
+$("go").onclick = async () => {
+  const token = $("token").value.trim();
+  if (!token) return status("err", "Falta el token de GitHub.");
+  let channels;
+  try { channels = collect(); } catch (e) { return status("err", e.message); }
+  let enc;
+  try { enc = await BuildCrypto.encryptBuildRequest({ channels }); }
+  catch (e) { return status("err", "No se pudo cifrar: " + e.message); }
+  const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW}/dispatches`, {
+    method: "POST",
+    headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}`, "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json" },
+    body: JSON.stringify({ ref: BRANCH, inputs: { target: $("target").value, encrypted_config: enc } }),
+  }).catch((e) => ({ status: 0, statusText: e.message }));
+  if (res.status === 204) {
+    status("ok", `Compilacion iniciada. <a target="_blank" rel="noopener" href="https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW}">Ver progreso</a>`);
+  } else {
+    const j = res.json ? await res.json().catch(() => ({})) : {};
+    status("err", `Error ${res.status}: ${j.message || res.statusText}`);
+  }
+};
+</script>
+</body>
+</html>

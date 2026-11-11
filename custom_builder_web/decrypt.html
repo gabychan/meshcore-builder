@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MeshCore Catalunya - Descifrar firmware</title>
+<style>
+  :root { --bg:#f6f7f9; --fg:#1b1f24; --card:#fff; --line:#d0d7de; --acc:#0b6bcb; --ok:#1a7f37; --err:#cf222e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0d1117; --fg:#e6edf3; --card:#161b22; --line:#30363d; --acc:#58a6ff; --ok:#3fb950; --err:#ff7b72; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui,sans-serif; }
+  main { max-width:620px; margin:0 auto; padding:16px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
+  input,button { font:inherit; } #msg { margin-top:.6rem; } a { color:var(--acc); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Descifrar firmware</h1>
+  <section>
+    <p>1. Descarga el fichero <code>.zip.enc</code> desde la seccion Artifacts de la ejecucion en GitHub Actions (llega dentro de un .zip: descomprimelo).<br>
+       2. Seleccionalo aqui. Tiene que ser el <strong>mismo navegador y perfil</strong> desde el que lanzaste la compilacion.</p>
+    <input type="file" id="f" accept=".enc" />
+    <div id="msg"></div>
+  </section>
+  <p><a href="index.html">Volver al builder</a></p>
+</main>
+<script src="crypto.js"></script>
+<script>
+document.getElementById("f").onchange = async (ev) => {
+  const file = ev.target.files[0], msg = document.getElementById("msg");
+  if (!file) return;
+  try {
+    const plain = await BuildCrypto.decryptBundle(await file.arrayBuffer());
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([plain], { type: "application/zip" }));
+    a.download = file.name.replace(/\.enc$/, "");
+    a.textContent = "Descargar " + a.download;
+    msg.style.color = "var(--ok)"; msg.textContent = "Descifrado correcto. "; msg.appendChild(a);
+    a.click();
+  } catch (e) {
+    msg.style.color = "var(--err)";
+    msg.textContent = "No se pudo descifrar. Asegurate de usar el mismo navegador y perfil que lanzo la compilacion.";
+  }
+};
+</script>
+</body>
+</html>
